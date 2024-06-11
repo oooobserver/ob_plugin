@@ -1,0 +1,13 @@
+[package]
+name = "ob_plugin"
+version = "0.1.0"
+edition = "2021"
+author = "shenye"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clap = { version = "4.5.4", features = ["derive"] }
+lazy_static = "1.4.0"
+rayon = "1.10.0"
+regex = "1.10.4"
