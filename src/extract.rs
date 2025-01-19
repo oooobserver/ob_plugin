@@ -146,6 +146,13 @@ fn extract_file_titles(path: &str, depth: usize) -> Result<Vec<(usize, String)>,
         .map(|s| util::parse_title(s.as_str()))
         // The title can't be the content
         .filter(|(l, n)| l <= &depth && n != "Content")
+        // Get rid of the bold syntax like this: "**xxxx**"
+        .map(|(l, s)| {
+            (
+                l,
+                s.trim_start_matches('*').trim_end_matches('*').to_string(),
+            )
+        })
         .collect::<Vec<_>>();
     Ok(res)
 }
