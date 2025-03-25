@@ -23,7 +23,6 @@ struct Plugin {
    4: H4
    (So on and so forth)...
 */
-//NOTE: Delete previous extracted content may cause un-expected damage, please check your file before use
 fn main() {
     let plugin = Plugin::parse();
 

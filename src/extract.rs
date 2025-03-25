@@ -138,10 +138,12 @@ fn extract_dir_helper(
     Ok(())
 }
 
+// Extract the depth and the title, when there is a depth gap, auto increment the depth
+// example: 2,4,4,5 -> 2,3,3,4
 fn extract_file_titles(path: &str, depth: usize) -> Result<Vec<(usize, String)>, Box<dyn Error>> {
     let content = fs::read_to_string(path)?;
 
-    let res = RE
+    let mut res = RE
         .find_iter(&content)
         .map(|s| util::parse_title(s.as_str()))
         // The title can't be the content
@@ -154,7 +156,24 @@ fn extract_file_titles(path: &str, depth: usize) -> Result<Vec<(usize, String)>,
             )
         })
         .collect::<Vec<_>>();
+
+    fill_title_gap(&mut res);
     Ok(res)
+}
+
+fn fill_title_gap(titles: &mut [(usize, String)]) {
+    if titles.is_empty() {
+        return;
+    }
+
+    let mut cur = titles[0].0;
+    for (depth, _) in titles.iter_mut().skip(1) {
+        if *depth > cur && (*depth - cur) > 1 {
+            *depth = cur + 1;
+        }
+
+        cur = *depth;
+    }
 }
 
 #[cfg(test)]
