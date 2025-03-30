@@ -7,8 +7,12 @@ use std::{
     fs::{self, DirEntry},
 };
 
-const TEMPLATE: &str = "
+const FILE_TEMPLATE: &str = "
 ## Content
+---
+";
+
+const DIR_TEMPLATE: &str = "
 ---
 ";
 
@@ -32,7 +36,7 @@ fn extract_file(path: &str, depth: usize) -> Result<(), Box<dyn Error>> {
     let content = check_delete_previous_content(&raw_content);
 
     let titles = extract_file_titles(path, depth)?;
-    let mut res = TEMPLATE.to_owned();
+    let mut res = FILE_TEMPLATE.to_owned();
     for (l, n) in titles.iter() {
         let row = gen_content_row(l, n, true);
         res.push_str(&row);
@@ -73,7 +77,7 @@ fn gen_dir_name(level: &usize, name: &str) -> String {
 }
 
 fn extract_dir(path: &str, depth: usize, recursive: bool) -> Result<(), Box<dyn Error>> {
-    let mut res = TEMPLATE.to_owned();
+    let mut res = DIR_TEMPLATE.to_owned();
 
     let entries = fs::read_dir(path).expect("read dir error, previous has validate");
     for e in entries.flatten() {
@@ -114,7 +118,7 @@ fn extract_dir_helper(
             extract_dir_helper(&e, depth, recursive, level + 1, res)?
         }
     } else {
-        // Check if this file is md file
+        // Check if this file is `.md` file
         if !check_path_extention(&file_name) {
             return Ok(());
         }
@@ -131,7 +135,6 @@ fn extract_dir_helper(
         }
 
         let row = gen_content_row(&level, file_name.trim_end_matches(".md"), false);
-
         res.push_str(&row);
     }
 
