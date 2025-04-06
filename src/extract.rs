@@ -4,7 +4,9 @@ use crate::{
 };
 use std::{
     error::Error,
+    ffi::OsStr,
     fs::{self, DirEntry},
+    path::Path,
 };
 
 const FILE_TEMPLATE: &str = "
@@ -38,7 +40,7 @@ fn extract_file(path: &str, depth: usize) -> Result<(), Box<dyn Error>> {
     let titles = extract_file_titles(path, depth)?;
     let mut res = FILE_TEMPLATE.to_owned();
     for (l, n) in titles.iter() {
-        let row = gen_content_row(l, n, true);
+        let row = gen_content_row(None, l, n, true);
         res.push_str(&row);
     }
 
@@ -49,7 +51,7 @@ fn extract_file(path: &str, depth: usize) -> Result<(), Box<dyn Error>> {
 }
 
 // If this is used for the file, add `#` char to indexing
-fn gen_content_row(level: &usize, name: &str, if_file: bool) -> String {
+fn gen_content_row(base_path: Option<&OsStr>, level: &usize, name: &str, if_file: bool) -> String {
     let mut row = String::new();
     for _ in 0..level - 2 {
         row.push('\t');
@@ -58,7 +60,13 @@ fn gen_content_row(level: &usize, name: &str, if_file: bool) -> String {
     let res = if if_file {
         format!("* [[#{}]]\n", name)
     } else {
-        format!("* [[{}]]\n", name)
+        // directory
+        if let Some(path) = base_path {
+            let path_name = path.to_str().expect("convert to string failed");
+            format!("* [[{}|{}]]\n", path_name, name)
+        } else {
+            format!("* [[{}]]\n", name)
+        }
     };
 
     row.push_str(&res);
@@ -78,10 +86,14 @@ fn gen_dir_name(level: &usize, name: &str) -> String {
 
 fn extract_dir(path: &str, depth: usize, recursive: bool) -> Result<(), Box<dyn Error>> {
     let mut res = DIR_TEMPLATE.to_owned();
+    // Only get the last segment of the path
+    let base_path = Path::new(path)
+        .file_name()
+        .expect("get directory name error");
 
     let entries = fs::read_dir(path).expect("read dir error, previous has validate");
     for e in entries.flatten() {
-        extract_dir_helper(&e, depth, recursive, 2, &mut res)?
+        extract_dir_helper(base_path, &e, depth, recursive, 2, &mut res)?
     }
 
     let mut path = path.to_owned();
@@ -93,6 +105,7 @@ fn extract_dir(path: &str, depth: usize, recursive: bool) -> Result<(), Box<dyn 
 }
 
 fn extract_dir_helper(
+    base_path: &OsStr,
     e: &DirEntry,
     depth: usize,
     recursive: bool,
@@ -103,6 +116,10 @@ fn extract_dir_helper(
         .file_name()
         .into_string()
         .expect("convert to string failed");
+
+    let mut new_base_path = Path::new(base_path).to_path_buf();
+    new_base_path.push(&file_name);
+    let new_base_path = new_base_path.as_os_str();
 
     if file_name == "imgs" {
         return Ok(());
@@ -115,7 +132,7 @@ fn extract_dir_helper(
         let entries = fs::read_dir(e.path()).expect("read dir error, previous has validate");
         res.push_str(&gen_dir_name(&level, &file_name));
         for e in entries.flatten() {
-            extract_dir_helper(&e, depth, recursive, level + 1, res)?
+            extract_dir_helper(new_base_path, &e, depth, recursive, level + 1, res)?
         }
     } else {
         // Check if this file is `.md` file
@@ -134,7 +151,12 @@ fn extract_dir_helper(
             extract_file(&path, depth)?;
         }
 
-        let row = gen_content_row(&level, file_name.trim_end_matches(".md"), false);
+        let row = gen_content_row(
+            Some(new_base_path),
+            &level,
+            file_name.trim_end_matches(".md"),
+            false,
+        );
         res.push_str(&row);
     }
 

@@ -23,6 +23,9 @@ struct Plugin {
    4: H4
    (So on and so forth)...
 */
+// Feat: support direcotry content entry sort, could based on alphabet or time
+// Feat: support file name filter, like *.imgs, .gitignore
+// Feat: support file content filter, like #tag
 fn main() {
     let plugin = Plugin::parse();
 
