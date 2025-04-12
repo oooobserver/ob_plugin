@@ -1,4 +1,11 @@
-use crate::RE;
+use std::{
+    fs::{DirEntry, ReadDir},
+    time::SystemTime,
+};
+
+use crate::{data::SortOrder, RE};
+
+const CONTENT_FILE_NAME: &str = "Content.md";
 
 /// Check if the file's extention is md
 ///
@@ -92,4 +99,44 @@ pub fn check_delete_previous_content(file_content: &str) -> &str {
     }
 
     file_content
+}
+
+// sort_filter_entries will add filter function later, for now it default filter `content.md` file
+pub fn sort_filter_entries(entries: ReadDir, order: SortOrder) -> Vec<DirEntry> {
+    match order {
+        SortOrder::Alphabet => sort_entries_by_name(entries),
+        SortOrder::UpdateTime => sort_entries_by_update_time(entries),
+    }
+}
+
+fn sort_entries_by_name(entries: ReadDir) -> Vec<DirEntry> {
+    let mut entries: Vec<DirEntry> = entries
+        .filter_map(Result::ok)
+        .filter(|e| e.file_name() != CONTENT_FILE_NAME)
+        .collect();
+    entries.sort_by_key(|a| a.file_name());
+    entries
+}
+
+fn sort_entries_by_update_time(entries: ReadDir) -> Vec<DirEntry> {
+    let mut entries: Vec<DirEntry> = entries
+        .filter_map(Result::ok)
+        .filter(|e| e.file_name() != CONTENT_FILE_NAME)
+        .collect();
+
+    entries.sort_by(|a, b| {
+        let a_time = a
+            .metadata()
+            .and_then(|meta| meta.modified())
+            .unwrap_or(SystemTime::UNIX_EPOCH);
+
+        let b_time = b
+            .metadata()
+            .and_then(|meta| meta.modified())
+            .unwrap_or(SystemTime::UNIX_EPOCH);
+
+        a_time.cmp(&b_time)
+    });
+
+    entries
 }

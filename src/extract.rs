@@ -1,4 +1,5 @@
 use crate::{
+    data::Plugin,
     util::{self, check_delete_previous_content, check_path_extention},
     RE,
 };
@@ -18,7 +19,7 @@ const DIR_TEMPLATE: &str = "
 ---
 ";
 
-pub fn extract(path: &str, depth: usize, recursive: bool) -> Result<(), Box<dyn Error>> {
+pub fn extract(plugin: &Plugin, path: &str) -> Result<(), Box<dyn Error>> {
     let metadata = fs::metadata(path)?;
 
     if metadata.is_file() {
@@ -26,18 +27,18 @@ pub fn extract(path: &str, depth: usize, recursive: bool) -> Result<(), Box<dyn 
         if !util::check_path_extention(path) {
             return Err("The file must be the mark down file".into());
         }
-        extract_file(path, depth)?
+        extract_file(plugin, path)?
     } else {
-        extract_dir(path, depth, recursive)?
+        extract_dir(plugin, path)?
     }
     Ok(())
 }
 
-fn extract_file(path: &str, depth: usize) -> Result<(), Box<dyn Error>> {
+fn extract_file(plugin: &Plugin, path: &str) -> Result<(), Box<dyn Error>> {
     let raw_content = fs::read_to_string(path)?;
     let content = check_delete_previous_content(&raw_content);
 
-    let titles = extract_file_titles(path, depth)?;
+    let titles = extract_file_titles(plugin, path)?;
     let mut res = FILE_TEMPLATE.to_owned();
     for (l, n) in titles.iter() {
         let row = gen_content_row(None, l, n, true);
@@ -84,7 +85,7 @@ fn gen_dir_name(level: &usize, name: &str) -> String {
     row
 }
 
-fn extract_dir(path: &str, depth: usize, recursive: bool) -> Result<(), Box<dyn Error>> {
+fn extract_dir(plugin: &Plugin, path: &str) -> Result<(), Box<dyn Error>> {
     let mut res = DIR_TEMPLATE.to_owned();
     // Only get the last segment of the path
     let base_path = Path::new(path)
@@ -92,8 +93,9 @@ fn extract_dir(path: &str, depth: usize, recursive: bool) -> Result<(), Box<dyn 
         .expect("get directory name error");
 
     let entries = fs::read_dir(path).expect("read dir error, previous has validate");
-    for e in entries.flatten() {
-        extract_dir_helper(base_path, &e, depth, recursive, 2, &mut res)?
+    let entries = util::sort_filter_entries(entries, plugin.sort);
+    for e in entries {
+        extract_dir_helper(plugin, base_path, &e, 2, &mut res)?
     }
 
     let mut path = path.to_owned();
@@ -105,10 +107,9 @@ fn extract_dir(path: &str, depth: usize, recursive: bool) -> Result<(), Box<dyn 
 }
 
 fn extract_dir_helper(
+    plugin: &Plugin,
     base_path: &OsStr,
     e: &DirEntry,
-    depth: usize,
-    recursive: bool,
     level: usize,
     res: &mut String,
 ) -> Result<(), Box<dyn Error>> {
@@ -129,10 +130,12 @@ fn extract_dir_helper(
         .unwrap_or_else(|_| panic!("can't get the file type: {:#?}", e.file_name()))
         .is_dir()
     {
-        let entries = fs::read_dir(e.path()).expect("read dir error, previous has validate");
         res.push_str(&gen_dir_name(&level, &file_name));
-        for e in entries.flatten() {
-            extract_dir_helper(new_base_path, &e, depth, recursive, level + 1, res)?
+
+        let entries = fs::read_dir(e.path()).expect("read dir error, previous has validate");
+        let entries = util::sort_filter_entries(entries, plugin.sort);
+        for e in entries {
+            extract_dir_helper(plugin, new_base_path, &e, level + 1, res)?
         }
     } else {
         // Check if this file is `.md` file
@@ -141,14 +144,14 @@ fn extract_dir_helper(
         }
 
         // If recursive, generate each file's content
-        if recursive {
+        if plugin.recursive {
             let path = e
                 .path()
                 .into_os_string()
                 .into_string()
                 .expect("convert to string failed");
             println!("{}", path);
-            extract_file(&path, depth)?;
+            extract_file(plugin, &path)?;
         }
 
         let row = gen_content_row(
@@ -165,14 +168,17 @@ fn extract_dir_helper(
 
 // Extract the depth and the title, when there is a depth gap, auto increment the depth
 // example: 2,4,4,5 -> 2,3,3,4
-fn extract_file_titles(path: &str, depth: usize) -> Result<Vec<(usize, String)>, Box<dyn Error>> {
+fn extract_file_titles(
+    plugin: &Plugin,
+    path: &str,
+) -> Result<Vec<(usize, String)>, Box<dyn Error>> {
     let content = fs::read_to_string(path)?;
 
     let mut res = RE
         .find_iter(&content)
         .map(|s| util::parse_title(s.as_str()))
         // The title can't be the content
-        .filter(|(l, n)| l <= &depth && n != "Content")
+        .filter(|(l, n)| l <= &plugin.depth && n != "Content")
         // Get rid of the bold syntax like this: "**xxxx**"
         .map(|(l, s)| {
             (

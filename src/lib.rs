@@ -1,5 +1,6 @@
 use regex::Regex;
 
+pub mod data;
 pub mod extract;
 pub mod log;
 pub mod util;
