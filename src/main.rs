@@ -3,10 +3,11 @@ use ob_plugin::{data::Plugin, error, extract::extract, success, util};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 // Feat: support file name filter, like *.imgs, .gitignore
-// Feat: support file content filter, like #tag
 // Feat: reserve direcotry content file if it exits other than content
+// Feat: support print generate content through -p flag
 fn main() {
-    let plugin = Plugin::parse();
+    let mut plugin = Plugin::parse();
+    plugin.file_paths = util::normalize_paths(plugin.file_paths);
 
     plugin
         .file_paths

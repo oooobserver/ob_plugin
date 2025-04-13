@@ -1,9 +1,9 @@
 use std::{
-    fs::{DirEntry, ReadDir},
+    fs::{self, DirEntry, ReadDir},
     time::SystemTime,
 };
 
-use crate::{data::SortOrder, RE};
+use crate::{data::SortOrder, error, RE};
 
 const CONTENT_FILE_NAME: &str = "Content.md";
 
@@ -139,4 +139,20 @@ fn sort_entries_by_update_time(entries: ReadDir) -> Vec<DirEntry> {
     });
 
     entries
+}
+
+pub fn normalize_paths(paths: Vec<String>) -> Vec<String> {
+    let mut result = Vec::new();
+
+    for original_path in paths {
+        match fs::canonicalize(&original_path) {
+            Ok(path_buf) => match path_buf.to_str() {
+                Some(s) => result.push(s.to_string()),
+                None => error!("Cannot convert to string: {:?}", path_buf),
+            },
+            Err(e) => error!("Failed to canonicalize '{}': {}", original_path, e),
+        }
+    }
+
+    result
 }
