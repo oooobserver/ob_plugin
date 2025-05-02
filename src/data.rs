@@ -22,6 +22,16 @@ pub struct Plugin {
     #[arg(short, long, value_name = "sort", default_value_t = SortOrder::Alphabet)]
     pub sort: SortOrder,
 
+    #[arg(short, long, value_name = "print", default_value = "false")]
+    pub print: bool,
+
+    #[arg(
+        long,
+        value_name = "date",
+        help = "print the update/create file amone the specific date, YYYY-MM-DD format"
+    )]
+    pub date: Option<String>,
+
     pub file_paths: Vec<String>,
 }
 

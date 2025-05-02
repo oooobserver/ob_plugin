@@ -45,8 +45,11 @@ fn extract_file(plugin: &Plugin, path: &str) -> Result<(), Box<dyn Error>> {
         res.push_str(&row);
     }
 
-    res.push_str(content);
+    if plugin.print {
+        println!("Generate file content: {}", &res);
+    }
 
+    res.push_str(content);
     fs::write(path, res)?;
     Ok(())
 }
@@ -100,6 +103,10 @@ fn extract_dir(plugin: &Plugin, path: &str) -> Result<(), Box<dyn Error>> {
 
     let mut path = path.to_owned();
     path.push_str("/Content.md");
+
+    if plugin.print {
+        println!("Generate directory content: {}", &res);
+    }
 
     fs::File::create(&path)?;
     fs::write(&path, res)?;
